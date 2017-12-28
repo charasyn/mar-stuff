@@ -1,7 +1,3 @@
-;; command-interpreter.asm
-;; Designed to allow you to enter simple commands
-;; Scroll down to "command_list:"
-
 HWID_LEGS equ 0x1
 HWID_LASER equ 0x2
 HWID_LIDAR equ 0x3
@@ -36,7 +32,6 @@ CMD_GO        equ 0x01
 CMD_DRILL     equ 0x02
 CMD_LASER     equ 0x03
 CMD_INVENTORY equ 0x04
-CMD_WAIT      equ 0x05
 
 DIR_NORTH equ 0x0
 DIR_EAST  equ 0x1
@@ -52,15 +47,10 @@ command_list:
 ; Example "Drill" command (drills)
 ;   dw CMD_DRILL ; Drills the block below you
 
-    dw CMD_INVENTORY,INVENTORY_POLL
-    dw CMD_WAIT
-    dw CMD_INVENTORY,INVENTORY_CLEAR
-    dw CMD_WAIT
-    dw CMD_INVENTORY,INVENTORY_POLL
-    dw CMD_WAIT
-    dw CMD_LASER,LASER_WITHDRAW,1
-    dw CMD_INVENTORY,INVENTORY_POLL
-    dw CMD_WAIT
+    ;dw CMD_GO,DIR_NORTH,1
+    ;dw CMD_GO,DIR_WEST,5
+    ;dw CMD_DRILL
+    ;dw CMD_INVENTORY,INVENTORY_POLL
 ; Don't put commands after the CMD_DONE
     dw CMD_DONE
 
@@ -70,7 +60,9 @@ restore_valid: dw 0
 restore_sp: dw 0
 
 prgm_status: dw 0
+inhibit_status: dw 0
 debug_text: dw 0
+temp: dw 0xabcd
 
 .text
     mov a,[restore_valid]
@@ -94,140 +86,41 @@ Main:
     xor a,a
     mov [bp-1],a
 Main_loop:
-    mov a,[bp-1]
-    mov b,[a+command_list]
-    add a,1
-    cmp b,CMD_GO
-    jz Main_cmd_go
-    cmp b,CMD_DRILL
-    jz Main_cmd_drill
-    cmp b,CMD_LASER
-    jz Main_cmd_laser
-    cmp b,CMD_INVENTORY
-    jz Main_cmd_inventory
-    cmp b,CMD_WAIT
-    jz Main_cmd_wait
-    mov a,INVENTORY_POLL
-    mov [debug_text],b
-    hwi HWID_INVENTORY
+    mov [inhibit_status],1
+    call WaitForNextTick
+    push 1
+    push 2
+    push 3
+    push 4
+AAAA:
+    push [temp]
+BBBB:
+    mov [debug_text],[sp]
+    call WaitForNextTick
+    call WaitForNextTick
+    mov [debug_text],[sp+1]
+    call WaitForNextTick
+    call WaitForNextTick
+    mov [debug_text],[sp+2]
+    call WaitForNextTick
+    call WaitForNextTick
+    mov [debug_text],[sp+3]
+    call WaitForNextTick
+    call WaitForNextTick
+    mov [debug_text],AAAA
+    call WaitForNextTick
+    call WaitForNextTick
+    mov [debug_text],BBBB
+    call WaitForNextTick
+    call WaitForNextTick
+    mov [inhibit_status],0
     jmp Main_finishedLoop
 
-Main_cmd_wait:
-    mov [bp-1],a
-    call WaitForNextTick
-    jmp Main_loop
-
-Main_cmd_go:
-    sub sp,2
-    mov b,[a+command_list]
-    mov [sp],b
-    add a,1
-    mov b,[a+command_list]
-    mov [sp+1],b
-    add a,1
-    mov [bp-1],a
-    call GoInDirection
-    add sp,2
-    jmp Main_loop
-
-Main_cmd_drill:
-    mov [bp-1],a
-    call DrillAhead
-    jmp Main_loop
-
-Main_cmd_laser:
-    sub sp,2
-    mov b,[a+command_list]
-    mov [sp],b
-    add a,1
-    mov b,[a+command_list]
-    mov [sp+1],b
-    add a,1
-    mov [bp-1],a
-    call DoLaser
-    add sp,2
-    jmp Main_loop
-
-Main_cmd_inventory:
-    mov b,[a+command_list]
-    push b
-    add a,1
-    mov [bp-1],a
-    call DoInventory
-    add sp,1
-    jmp Main_loop
-
 Main_finishedLoop:
+    mov [inhibit_status],0
     mov [prgm_status],0xd000
     call WaitForNextTick
     jmp Main_finishedLoop
-
-DoInventory:
-    push bp
-    mov bp,sp
-    mov a,[bp+2]
-    mov b,0xffff
-    hwi HWID_INVENTORY
-    mov [debug_text],b
-    mov sp,bp
-    pop bp
-    ret
-
-DoLaser:
-    push bp
-    mov bp,sp
-    mov a,[bp+2]
-    mov b,[bp+3]
-    hwi HWID_LASER
-    call WaitForNextTick
-    mov sp,bp
-    pop bp
-    ret
-
-DrillAhead:
-    mov a,DRILL_GATHER_SLOW
-    hwi HWID_DRILL
-DrillAhead_loop:
-    call WaitForNextTick
-    mov a,DRILL_POLL
-    hwi HWID_DRILL
-    test b,b
-    jnz DrillAhead_loop
-    ret
-
-GoInDirection:
-    push bp
-    mov bp,sp
-    sub sp,4
-    mov a,[bp+3] ; get distance
-    mov [bp-1],a
-    mov a,GET_POS
-    hwi HWID_LIDAR
-GoInDirection_loop2:
-    mov [bp-4],5
-GoInDirection_loop1:
-    sub [bp-4],1
-    jz CrashPrgm
-    mov [bp-2],x
-    mov [bp-3],y
-    mov b,[bp+2] ; get direction
-    mov a,SET_DIRECTION_AND_WALK
-    hwi HWID_LEGS
-    call WaitForNextTick
-    mov a,GET_POS
-    hwi HWID_LIDAR
-    cmp x,[bp-2]
-    jnz GoInDirection_notEqual
-    cmp y,[bp-3]
-    jz GoInDirection_loop1
-GoInDirection_notEqual:
-    mov a,[bp-1]
-    sub a,1
-    mov [bp-1],a
-    jnz GoInDirection_loop2
-    add sp,4
-    pop bp
-    ret
 
 ShowBattery:
     mov a, BATTERY_POLL
@@ -264,7 +157,6 @@ ShowBattery:
 ShowBattery_noReloadSt:
     or b,a
     mov a,b
-    hwi 9
     ret
 
 WaitForNextTick:
@@ -275,6 +167,10 @@ WaitForNextTick:
     mov a,[debug_text]
     test a,a
     mov [debug_text],0
+    jnz WaitForNextTick_validText
+    mov a,[inhibit_status]
+    test a,a
+    mov a,0
     jnz WaitForNextTick_validText
     call ShowBattery
 WaitForNextTick_validText:
