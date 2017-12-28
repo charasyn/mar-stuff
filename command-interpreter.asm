@@ -49,7 +49,7 @@ command_list:
 ; Example "Go" command (moves the bot)
 ;   dw CMD_GO, DIR_SOUTH, 9 ; Moves the bot 9 units south
 ; Example "Drill" command (drills)
-;   dw CMD_DRILL ; Drills the block in front of you
+;   dw CMD_DRILL ; Drills the block below you
 
     ;dw CMD_GO,DIR_NORTH,1
     ;dw CMD_GO,DIR_WEST,5
