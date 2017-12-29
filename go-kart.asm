@@ -91,6 +91,8 @@ KEYBOARD_FETCH_KEY equ 1 ; Cost: 0kJ
 ;;  Version 1.0B
 HOLO_CLEAR equ 0 ; Cost: 0kJ
   ;; Don't display anything
+HOLO_DISPLAY_HEX equ 1
+HOLO_DISPLAY_STRING equ 2
 
 ;;  Additional Info
 ;;  Setting Register A to anything other than 0 will cause that value to be displayed
@@ -165,22 +167,24 @@ action:    dw 0
 action_p1: dw 0
 action_p2: dw 0
 
+display: dw 0,0,0,0,0,0,0,0,0
+
 .text
     jmp __start
 _main:
     call _ClearKeyboard
-_main_loop:
-    call _PollKeyboard
-    ; left up right down
-    cmp a,0x25
-    jl _main_notdirs
-    cmp a,0x28
-    jg _main_notdirs
-    ; they pressed a directional key
-    push a
-    call _HandleDirectionalKey
-    add sp,2
-_main_notdirs:
+;_main_loop:
+;    call _PollKeyboard
+;    ; left up right down
+;    cmp a,0x25
+;    jl _main_notdirs
+;    cmp a,0x28
+;    jg _main_notdirs
+;    ; they pressed a directional key
+;    push a
+;    call _HandleDirectionalKey
+;    add sp,2
+;_main_notdirs:
 
     call _FinishTick
     jmp _main_loop
@@ -213,28 +217,57 @@ _PollKeyboard:
     mov a,b
     ret
 
+; void DrawStringOnScreen(int * str);
+_DrawStringOnScreen:
+    push bp
+    mov bp,sp
+    mov b,[bp+2]
+    mov a,HOLO_DISPLAY_STRING
+    hwi HWID_HOLO
+    mov sp,bp
+    pop bp
+    ret
+
 ; void FinishTick(void);
 _FinishTick:
     push bp
     mov bp,sp
 
-    mov a,[debug_text]
-    test a,a
-    mov [debug_text],0
-    jnz _FinishTick_validText
-    call ShowBattery
-_FinishTick_validText:
-    hwi HWID_HOLO
-
-
+    push display
+    call _WriteBatteryText
+    add sp,2
+    push display
+    call _DrawStringOnScreen
+    add sp,2
 
     call _WaitForNextTick
     mov sp,bp
     pop bp
     ret
 
-; void ShowBattery(void);
-_ShowBattery:
+; void WriteTimeText(int * dest);
+_WriteTimeText:
+    push bp
+    mov bp,sp
+    add sp,0
+
+    
+
+    mov sp,bp
+    pop bp
+    ret
+
+; void WriteBatteryText(int * dest);
+_WriteBatteryText:
+    push bp
+    mov bp,sp
+    add sp,0
+
+    mov c,[bp+2]
+    mov [c+0],0x42 ; B
+    mov [c+1],0x3a ; :
+    mov [c+5],0x2e ; .
+    mov [c+7],0x25 ; %
     mov a, BATTERY_POLL
     hwi HWID_BATTERY
     push b
@@ -244,31 +277,26 @@ _ShowBattery:
     pop a
     mul 1000
     div b
+    cmp a,1000
+    jle _WriteBatteryText_max_no
+    mov a,1000
+_WriteBatteryText_max_no:
     xor y,y
     div 10
-    mov b,y
-    shl b,8
+    add y,0x30
+    mov [c+6],y
     xor y,y
     div 10
-    shr b,4
-    shl y,8
-    or b,y
+    add y,0x30
+    mov [c+4],y
     xor y,y
     div 10
-    shr b,4
-    shl y,8
-    or b,y
-    test a,a
-    jz _ShowBattery_notgt
-    mov b,0x0999
-_ShowBattery_notgt:
-    mov a,[prgm_status]
-    test a,a
-    jnz _ShowBattery_noReloadSt
-    mov a,0xb000
-_ShowBattery_noReloadSt:
-    or b,a
-    mov a,b
+    add y,0x30
+    mov [c+3],y
+    add a,0x30
+    mov [c+2],a
+    mov sp,bp
+    pop bp
     ret
 
 __start:
