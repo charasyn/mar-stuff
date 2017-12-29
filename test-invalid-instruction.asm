@@ -44,20 +44,9 @@ DIR_WEST  equ 0x3
 
 .data
 
-command_list:
-; Enter commands here!
-; Example "Go" command (moves the bot)
-;   dw CMD_GO, DIR_SOUTH, 9 ; Moves the bot 9 units south
-; Example "Drill" command (drills)
-;   dw CMD_DRILL ; Drills the block below you
-
-    ;dw CMD_GO,DIR_NORTH,1
-    ;dw CMD_GO,DIR_WEST,5
-    ;dw CMD_DRILL
-    ;dw CMD_INVENTORY,INVENTORY_POLL
-; Don't put commands after the CMD_DONE
-    dw CMD_DONE
-
+print_text:
+    dw 0x0020
+    
 
 initialized: dw 0
 restore_valid: dw 0
@@ -89,26 +78,6 @@ Main:
     xor a,a
     mov [bp-1],a
 Main_loop:
-    mov [inhibit_status],1
-    mov [debug_text],AAA
-    call WaitForNextTick
-    call WaitForNextTick
-    mov [debug_text],BBB
-    call WaitForNextTick
-    call WaitForNextTick
-    mov [debug_text],CCC
-    call WaitForNextTick
-    call WaitForNextTick
-    mov [inhibit_status],0
-    jmp Main_finishedLoop
-
-AAA:
-    invalid
-    instructions
-BBB:
-    xor a,a
-    xor a,a
-CCC:
 
 Main_finishedLoop:
     mov [inhibit_status],0

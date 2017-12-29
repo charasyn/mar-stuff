@@ -1,29 +1,12 @@
-;; command-interpreter.asm
-;; Designed to allow you to enter simple commands
-;; Scroll down to "command_list:"
-
 HWID_LEGS equ 0x1
-HWID_LASER equ 0x2
 HWID_LIDAR equ 0x3
-HWID_KEYBOARD equ 0x4
-HWID_DRILL equ 0x5
-HWID_INVENTORY equ 0x6
-HWID_RNG equ 0x7 ; random number generator
 HWID_CLOCK equ 0x8
 HWID_HOLO equ 0x9
 HWID_BATTERY equ 0xA
-HWID_FLOPPY equ 0xB
 
-GET_POS equ 0x1
+LIDAR_GET_POS equ 0x1
 
 SET_DIRECTION_AND_WALK equ 0x2
-
-LASER_WITHDRAW equ 1
-LASER_DEPOSIT equ 2
-
-DRILL_POLL equ 1
-DRILL_GATHER_SLOW equ 2
-DRILL_GATHER_FAST equ 3
 
 INVENTORY_POLL equ 1
 INVENTORY_CLEAR equ 2
@@ -44,20 +27,6 @@ DIR_SOUTH equ 0x2
 DIR_WEST  equ 0x3
 
 .data
-
-command_list:
-; Enter commands here!
-; Example "Go" command (moves the bot)
-;   dw CMD_GO, DIR_SOUTH, 9 ; Moves the bot 9 units south
-; Example "Drill" command (drills)
-;   dw CMD_DRILL ; Drills the block below you
-
-    dw CMD_INVENTORY,INVENTORY_POLL
-    dw CMD_WAIT
-; Don't put commands after the CMD_DONE
-    dw CMD_DONE
-
-
 initialized: dw 0
 restore_valid: dw 0
 restore_sp: dw 0
@@ -84,128 +53,35 @@ Main:
     sub sp,1
     xor a,a
     mov [bp-1],a
-Main_loop:
-    mov a,[bp-1]
-    mov b,[a+command_list]
-    add a,1
-    cmp b,CMD_GO
-    jz Main_cmd_go
-    cmp b,CMD_DRILL
-    jz Main_cmd_drill
-    cmp b,CMD_LASER
-    jz Main_cmd_laser
-    cmp b,CMD_INVENTORY
-    jz Main_cmd_inventory
-    cmp b,CMD_WAIT
-    jz Main_cmd_wait
-    mov a,INVENTORY_POLL
-    mov [debug_text],b
-    hwi HWID_INVENTORY
-    jmp Main_finishedLoop
+Main_mainloop:
 
-Main_cmd_wait:
-    mov [bp-1],a
-    call WaitForNextTick
-    jmp Main_loop
-
-Main_cmd_go:
-    sub sp,2
-    mov b,[a+command_list]
-    mov [sp],b
-    add a,1
-    mov b,[a+command_list]
-    mov [sp+1],b
-    add a,1
-    mov [bp-1],a
-    call GoInDirection
-    add sp,2
-    jmp Main_loop
-
-Main_cmd_drill:
-    mov [bp-1],a
-    call DrillAhead
-    jmp Main_loop
-
-Main_cmd_laser:
-    sub sp,2
-    mov b,[a+command_list]
-    mov [sp],b
-    add a,1
-    mov b,[a+command_list]
-    mov [sp+1],b
-    add a,1
-    mov [bp-1],a
-    call DoLaser
-    add sp,2
-    jmp Main_loop
-
-Main_cmd_inventory:
-    mov b,[a+command_list]
-    push b
-    add a,1
-    mov [bp-1],a
-    call DoInventory
-    add sp,1
-    jmp Main_loop
 
 Main_finishedLoop:
     mov [prgm_status],0xd000
     call WaitForNextTick
     jmp Main_finishedLoop
 
-DoInventory:
-    push bp
-    mov bp,sp
-    mov a,[bp+2]
-    mov b,0xffff
-    hwi HWID_INVENTORY
-    mov [debug_text],b
-    mov sp,bp
-    pop bp
-    ret
-
-DoLaser:
-    push bp
-    mov bp,sp
-    mov a,[bp+2]
-    mov b,[bp+3]
-    hwi HWID_LASER
-    call WaitForNextTick
-    mov sp,bp
-    pop bp
-    ret
-
-DrillAhead:
-    mov a,DRILL_GATHER_SLOW
-    hwi HWID_DRILL
-DrillAhead_loop:
-    call WaitForNextTick
-    mov a,DRILL_POLL
-    hwi HWID_DRILL
-    test b,b
-    jnz DrillAhead_loop
-    ret
-
 GoInDirection:
     push bp
     mov bp,sp
-    sub sp,4
+    sub sp,5
+    mov [bp-5],0
     mov a,[bp+3] ; get distance
     mov [bp-1],a
     mov a,GET_POS
     hwi HWID_LIDAR
 GoInDirection_loop2:
-    mov [bp-4],5
+    mov [bp-4],3
 GoInDirection_loop1:
     sub [bp-4],1
-    jz CrashPrgm
+    jz GoInDirection_end
     mov [bp-2],x
     mov [bp-3],y
     mov b,[bp+2] ; get direction
     mov a,SET_DIRECTION_AND_WALK
     hwi HWID_LEGS
     call WaitForNextTick
-    mov a,GET_POS
+    mov a,LIDAR_GET_POS
     hwi HWID_LIDAR
     cmp x,[bp-2]
     jnz GoInDirection_notEqual
@@ -216,7 +92,10 @@ GoInDirection_notEqual:
     sub a,1
     mov [bp-1],a
     jnz GoInDirection_loop2
-    add sp,4
+    mov [bp-5],1
+GoInDirection_end:
+    mov a,[bp-5]
+    mov sp,bp
     pop bp
     ret
 

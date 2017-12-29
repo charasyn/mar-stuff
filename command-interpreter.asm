@@ -54,13 +54,6 @@ command_list:
 
     dw CMD_INVENTORY,INVENTORY_POLL
     dw CMD_WAIT
-    dw CMD_INVENTORY,INVENTORY_CLEAR
-    dw CMD_WAIT
-    dw CMD_INVENTORY,INVENTORY_POLL
-    dw CMD_WAIT
-    dw CMD_LASER,LASER_WITHDRAW,1
-    dw CMD_INVENTORY,INVENTORY_POLL
-    dw CMD_WAIT
 ; Don't put commands after the CMD_DONE
     dw CMD_DONE
 

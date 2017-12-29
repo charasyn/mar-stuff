@@ -147,15 +147,163 @@ FLOPPY_WRITE_SECTOR equ 3 ; Cost: 1kJ
 ;;  Read and write operations are synchronous. Track seeking time is 2ms.*
 ;;  *Seek time is added to the total execution time, which is not yet calculated as of v1.3a
 
+
+ACTION_NONE  equ 0x0000
+ACTION_LOOK  equ 0x0001
+ACTION_WALK  equ 0x0002
+ACTION_LASER equ 0x0003
+
+.data
+
+initialized: dw 0
+restore_valid: dw 0
+restore_sp: dw 0
+
+debug_text: dw 0
+
+action:    dw 0
+action_p1: dw 0
+action_p2: dw 0
+
+.text
+    jmp __start
+_main:
+    call _ClearKeyboard
+_main_loop:
+    call _PollKeyboard
+    ; left up right down
+    cmp a,0x25
+    jl _main_notdirs
+    cmp a,0x28
+    jg _main_notdirs
+    ; they pressed a directional key
+    push a
+    call _HandleDirectionalKey
+    add sp,2
+_main_notdirs:
+
+    call _FinishTick
+    jmp _main_loop
+
+; void HandleDirectionalKey(int keycode);
+_HandleDirectionalKey:
+    push bp
+    mov bp,sp
+    mov [action], ACTION_WALK
+    mov a,[bp+2]
+    sub a,0x26 ; subtract the value for up
+    jns _HandleDirectionalKey_noadd
+    add a,4
+_HandleDirectionalKey_noadd:
+    mov [action_p1],a
+    mov sp,bp
+    pop bp
+    ret
+
 ; void ClearKeyboard(void);
 _ClearKeyboard:
     mov a,KEYBOARD_CLEAR
     hwi HWID_KEYBOARD
     ret
 
-; u16 PollKeyboard(void);
+; int PollKeyboard(void);
 _PollKeyboard:
     mov a,KEYBOARD_FETCH_KEY
     hwi HWID_KEYBOARD
     mov a,b
     ret
+
+; void FinishTick(void);
+_FinishTick:
+    push bp
+    mov bp,sp
+
+    mov a,[debug_text]
+    test a,a
+    mov [debug_text],0
+    jnz _FinishTick_validText
+    call ShowBattery
+_FinishTick_validText:
+    hwi HWID_HOLO
+
+
+
+    call _WaitForNextTick
+    mov sp,bp
+    pop bp
+    ret
+
+; void ShowBattery(void);
+_ShowBattery:
+    mov a, BATTERY_POLL
+    hwi HWID_BATTERY
+    push b
+    mov a, BATTERY_GET_MAX_CAPACITY
+    hwi HWID_BATTERY
+    xor y,y
+    pop a
+    mul 1000
+    div b
+    xor y,y
+    div 10
+    mov b,y
+    shl b,8
+    xor y,y
+    div 10
+    shr b,4
+    shl y,8
+    or b,y
+    xor y,y
+    div 10
+    shr b,4
+    shl y,8
+    or b,y
+    test a,a
+    jz _ShowBattery_notgt
+    mov b,0x0999
+_ShowBattery_notgt:
+    mov a,[prgm_status]
+    test a,a
+    jnz _ShowBattery_noReloadSt
+    mov a,0xb000
+_ShowBattery_noReloadSt:
+    or b,a
+    mov a,b
+    ret
+
+__start:
+    mov a,[restore_valid]
+    test a,a
+    jnz RestorePrevTickState
+    mov a,[initialized]
+    test a,a
+    jnz InvalidRestore
+    mov a,1
+    mov [initialized],a
+    jmp _main
+
+; void WaitForNextTick(void);
+_WaitForNextTick:
+    push bp
+    mov [restore_sp],sp
+    mov a,1
+    mov [restore_valid],a
+    brk
+RestorePrevTickState:
+    xor a,a
+    mov [restore_valid],a
+    mov sp,[restore_sp]
+    pop bp
+    ret
+
+; void CrashPrgm(void);
+_CrashPrgm:
+    mov [prgm_status],0xc000
+    call _WaitForNextTick
+    jmp _CrashPrgm
+
+; void InvalidRestore(void);
+_InvalidRestore:
+    mov a,0xff80
+    hwi HWID_HOLO
+    brk
