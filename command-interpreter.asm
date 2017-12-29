@@ -52,6 +52,8 @@ command_list:
 ; Example "Drill" command (drills)
 ;   dw CMD_DRILL ; Drills the block below you
 
+    dw CMD_GO,DIR_SOUTH,1
+
 ; Don't put commands after the CMD_DONE
     dw CMD_DONE
 

@@ -89,12 +89,8 @@ _RenderTextWindow_l1d:
     mov [bp-1],1
     jmp _RenderTextWindow_end
 _RenderTextWindow_longdelay:
-    mov [bp-1],8
+    mov [bp-1],3
 _RenderTextWindow_end:
-    mov a,[bp-1]
-    push a
-    call _DebugText
-    add sp,1
     mov a,[bp-1]
     pop x
     mov sp,bp
@@ -172,7 +168,7 @@ _DebugText:
     mov a,[bp+2]
     push a
     call _DrawHexOnScreen
-    add sp,2
+    add sp,1
     call _WaitForNextTick
     mov sp,bp
     pop bp
@@ -209,7 +205,7 @@ _FinishTick:
 
     push display
     call _DrawStringOnScreen
-    add sp,2
+    add sp,1
 
     call _WaitForNextTick
     mov sp,bp
@@ -243,15 +239,11 @@ RestorePrevTickState:
 
 ; void CrashPrgm(void);
 _CrashPrgm:
-    push 0xff90
-    call _DrawHexOnScreen
-    add sp,2
-    call _WaitForNextTick
-    jmp _CrashPrgm
+    brk
 
 ; void InvalidRestore(void);
 _InvalidRestore:
-    push bp
+    mov sp,0x8000
     mov bp,sp
 
     mov a,KEYBOARD_FETCH_KEY
