@@ -52,8 +52,6 @@ command_list:
 ; Example "Drill" command (drills)
 ;   dw CMD_DRILL ; Drills the block below you
 
-    dw CMD_INVENTORY,INVENTORY_POLL
-    dw CMD_WAIT
 ; Don't put commands after the CMD_DONE
     dw CMD_DONE
 
